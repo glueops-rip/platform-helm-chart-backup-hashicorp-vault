@@ -1,0 +1,11 @@
+# Default values for glueops-backup-hashicorp-vault.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+aws_region: nil
+aws_accessKey: nil
+aws_secretKey: nil
+captain_domain: nil
+company_key: nil
+cron_expression: "0 */6 * * *"

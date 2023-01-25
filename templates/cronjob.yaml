@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-backup-cronjob
+spec:
+ # Set your desired cron schedule
+  schedule: {{ .Values.cron_expression }}
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+           # Use a ServiceAccount that we will create next (keep reading!)
+          serviceAccountName: vault-backup
+          volumes:
+          # Create an empty drive to share the snapshot across containers
+            - name: share
+              emptyDir: {}
+          initContainers:
+            # Run an init container that creates the the snapshot of Vault
+            - name: vault-backup
+              # Choose an appropriate Vault version (e.g. same as your Vault setup)
+              image: vault:1.12.2
+              command: ["/bin/sh", "-c"]
+              args:
+                # 1. Get the ServiceAccount token which we will use to authenticate against Vault
+                # 2. Login to Vault using the SA token at the endpoint where the Kubernetes auth engine
+                #    has been enabled
+                # 3. Use the Vault CLI to store a snapshot in our empty volume
+                - |
+                  SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token);
+                  export VAULT_LOG_LEVEL=debug
+                  export VAULT_SKIP_VERIFY=true
+                  export VAULT_TOKEN=$(vault write -field=token auth/kubernetes/login jwt=$SA_TOKEN role=vault-backup-role);
+                  date=$(date '+%Y-%m-%d')
+                  mkdir -p /share/${date}
+                  vault operator raft snapshot save /share/vault_${date}.snap;
+              env:
+                # Set the Vault address using the Kubernetes service name
+                - name: VAULT_ADDR
+                  value: https://vault-active.glueops-core-vault.svc.cluster.local:8200
+              volumeMounts:
+                - mountPath: /share
+                  name: share
+          containers:
+            # Run a container with the AWS CLI and copy the snapshot to our S3 bucket
+            - name: aws-s3-backup
+              image: amazon/aws-cli:2.9.17
+              env:
+              - name: AWS_ACCESS_KEY_ID
+                value: "{{ .Values.aws_accessKey }}"
+              - name: AWS_SECRET_ACCESS_KEY
+                value: "{{ .Values.aws_secretKey }}"
+              - name: AWS_DEFAULT_REGION
+                value: "{{ .Values.aws_region }}"
+              command:
+                - /bin/sh
+              args:
+                - -ec
+                # Copy the snapshot file to an S3 bucket called hashicorp-vault-backups
+                - aws s3 cp /share/vault_$(date '+%Y-%m-%d').snap s3://glueops-tenant-{{ .Values.company_key }}-primary/{{ .Values.captain_domain }}/hashicorp-vault-backups/$(date '+%Y-%m-%d')/vault_$(date +"%Y%m%d_%H%M%S").snap;
+              volumeMounts:
+                - mountPath: /share
+                  name: share
+          restartPolicy: OnFailure
