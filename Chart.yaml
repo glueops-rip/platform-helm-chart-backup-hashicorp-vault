@@ -2,4 +2,4 @@ apiVersion: v2
 appVersion: v0.1.0
 description: GlueOps Helm Chart for backing up Hashicorp Vault
 name: glueops-backup-hashicorp-vault
-version: 0.1.0
+version: 0.1.1
