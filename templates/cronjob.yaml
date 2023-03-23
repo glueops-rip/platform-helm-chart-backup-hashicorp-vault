@@ -21,7 +21,7 @@ spec:
             # Run an init container that creates the the snapshot of Vault
             - name: vault-backup
               # Choose an appropriate Vault version (e.g. same as your Vault setup)
-              image: vault:1.12.3
+              image: vault:1.12.4
               command: ["/bin/sh", "-c"]
               args:
                 # 1. Get the ServiceAccount token which we will use to authenticate against Vault
@@ -46,7 +46,7 @@ spec:
           containers:
             # Run a container with the AWS CLI and copy the snapshot to our S3 bucket
             - name: aws-s3-backup
-              image: amazon/aws-cli:2.10.1
+              image: amazon/aws-cli:2.11.5
               env:
               - name: AWS_ACCESS_KEY_ID
                 value: "{{ .Values.aws_accessKey }}"
