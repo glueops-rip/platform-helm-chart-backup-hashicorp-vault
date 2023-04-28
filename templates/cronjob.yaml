@@ -5,6 +5,7 @@ metadata:
 spec:
  # Set your desired cron schedule
   schedule: {{ .Values.cron_expression }}
+  concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 10
   failedJobsHistoryLimit: 3
   jobTemplate:
